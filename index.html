@@ -700,7 +700,15 @@ function doReset(){ document.getElementById('reset-modal').classList.add('open')
 function closeModal(){ document.getElementById('reset-modal').classList.remove('open'); }
 function confirmReset(){ chk={}; save(); closeModal(); render(); renderCustom(); }
 
-load();render();renderCustom();
+load();render();
+
+// Service worker — enables offline use after first load
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}renderCustom();
 </script>
 </body>
 </html>
