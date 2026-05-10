@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Overland Ready</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: #0F0F0C; }
+:root {
+  --bg: #0F0F0C; --surface: #1A1A14; --surface2: #222219; --border: #2E2E24;
+  --gold: #C8A84A; --gold-dim: #8A7232; --green: #4E7A52;
+  --rust: #A0522D; --snow: #7EB8C4; --amber: #C89A30;
+  --text: #E0DCC8; --text-dim: #888070;
+  --checked-text: #4A4A38; --checked-line: #383828;
+}
+body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:13px; min-height:100vh; padding-bottom:64px; }
+
+.header { position:sticky; top:0; z-index:100; background:var(--bg); border-bottom:2px solid var(--border); padding:12px 16px 10px; }
+.header-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.title { font-family:'Oswald',sans-serif; font-size:22px; font-weight:700; letter-spacing:0.06em; color:var(--gold); text-transform:uppercase; line-height:1; }
+.subtitle { font-size:9px; color:var(--text-dim); letter-spacing:0.15em; text-transform:uppercase; margin-top:3px; }
+.overall-count { font-family:'Oswald',sans-serif; font-size:26px; font-weight:600; color:var(--gold); text-align:right; line-height:1; }
+.overall-label { font-size:9px; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; text-align:right; margin-top:2px; }
+.progress-track { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--green) 0%,var(--gold) 100%); border-radius:2px; transition:width 0.4s ease; }
+
+.controls { background:var(--surface); border-bottom:1px solid var(--border); padding:8px 12px; display:flex; flex-direction:column; gap:8px; }
+.search-wrap { position:relative; }
+.search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:12px; pointer-events:none; }
+.search-input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 10px 8px 30px; border-radius:4px; outline:none; -webkit-appearance:none; }
+.search-input:focus { border-color:var(--gold-dim); }
+.search-input::placeholder { color:var(--text-dim); }
+.filter-row { display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; }
+.filter-row::-webkit-scrollbar { display:none; }
+.fbtn { background:none; border:1px solid var(--border); color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:9px; padding:5px 10px; border-radius:20px; cursor:pointer; white-space:nowrap; transition:all 0.15s; letter-spacing:0.06em; text-transform:uppercase; -webkit-tap-highlight-color:transparent; }
+.fbtn.active { background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:500; }
+
+.section { border-bottom:1px solid var(--border); }
+.section.hidden { display:none; }
+.sec-header { display:flex; align-items:center; gap:10px; padding:13px 16px; background:var(--surface); cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent; transition:background 0.1s; }
+.sec-header:active { background:var(--surface2); }
+.sec-icon { font-size:15px; width:20px; text-align:center; flex-shrink:0; }
+.sec-title { font-family:'Oswald',sans-serif; font-size:14px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; flex:1; }
+.sec-stat { font-size:10px; color:var(--text-dim); white-space:nowrap; transition:color 0.2s; }
+.sec-stat.done { color:var(--green); }
+.sec-chevron { font-size:9px; color:var(--text-dim); transition:transform 0.2s; flex-shrink:0; }
+.section.collapsed .sec-chevron { transform:rotate(-90deg); }
+.sec-bar { height:2px; background:var(--border); }
+.sec-bar-fill { height:100%; background:var(--green); transition:width 0.3s ease; }
+.sec-items { background:var(--bg); }
+.section.collapsed .sec-items { display:none; }
+
+.sub-label { font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); padding:10px 16px 3px; font-weight:400; }
+
+.item { display:flex; align-items:flex-start; padding:10px 16px; gap:12px; border-bottom:1px solid rgba(46,46,36,0.5); cursor:pointer; transition:background 0.1s; -webkit-tap-highlight-color:transparent; }
+.item:last-child { border-bottom:none; }
+.item:active { background:var(--surface2); }
+.item.hidden { display:none; }
+.item.checked { background:rgba(0,0,0,0.15); }
+.cb { width:19px; height:19px; border:1.5px solid var(--border); border-radius:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.2s; background:var(--surface); }
+.item.checked .cb { background:var(--green); border-color:var(--green); }
+.ck { color:white; font-size:11px; opacity:0; transform:scale(0.3); transition:all 0.15s; }
+.item.checked .ck { opacity:1; transform:scale(1); }
+.item-body { flex:1; min-width:0; }
+.item-text { font-size:12px; line-height:1.5; color:var(--text); transition:color 0.2s; word-break:break-word; }
+.item.checked .item-text { color:var(--checked-text); text-decoration:line-through; text-decoration-color:var(--checked-line); }
+.tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+.tag { font-size:8px; padding:1px 5px; border-radius:2px; letter-spacing:0.08em; text-transform:uppercase; font-weight:500; }
+.tag-optional { background:rgba(160,82,45,0.18); color:var(--rust); border:1px solid rgba(160,82,45,0.3); }
+.tag-seasonal { background:rgba(126,184,196,0.12); color:var(--snow); border:1px solid rgba(126,184,196,0.25); }
+.tag-solo { background:rgba(200,168,74,0.12); color:var(--amber); border:1px solid rgba(200,168,74,0.25); }
+
+.action-bar { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); padding:9px 12px; display:flex; gap:7px; z-index:100; }
+.abtn { flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:10px; padding:8px 4px; border-radius:4px; cursor:pointer; text-transform:uppercase; letter-spacing:0.04em; transition:all 0.15s; -webkit-tap-highlight-color:transparent; }
+.abtn:active { opacity:0.7; }
+.abtn.danger { color:#884040; border-color:#2A1818; }
+.abtn.gold { background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:500; }
+
+.custom-add-row { display:flex; gap:8px; padding:10px 12px; background:var(--bg); }
+.custom-input { flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 10px; border-radius:4px; outline:none; -webkit-appearance:none; }
+.custom-input:focus { border-color:var(--gold-dim); }
+.custom-input::placeholder { color:var(--text-dim); }
+.add-btn { background:var(--surface2); border:1px solid var(--border); color:var(--gold); font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 14px; border-radius:4px; cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+.add-btn:active { opacity:0.7; }
+.del-btn { background:none; border:none; color:#664040; font-size:16px; cursor:pointer; padding:0 4px; line-height:1; flex-shrink:0; -webkit-tap-highlight-color:transparent; align-self:center; }
+.del-btn:active { color:#994040; }
+
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px 20px 20px; max-width:280px; width:90%; text-align:center; }
+.modal-title { font-family:'Oswald',sans-serif; font-size:16px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text); margin-bottom:8px; }
+.modal-body { font-size:11px; color:var(--text-dim); line-height:1.6; margin-bottom:20px; }
+.modal-btns { display:flex; gap:8px; }
+.modal-btn { flex:1; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:10px; border-radius:4px; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; border:1px solid var(--border); -webkit-tap-highlight-color:transparent; }
+.modal-btn.cancel { background:var(--surface2); color:var(--text-dim); }
+.modal-btn.confirm { background:#6B2222; border-color:#6B2222; color:#E8C0C0; font-weight:500; }
+.modal-btn:active { opacity:0.75; }
+
+@media print {
+  .action-bar,.controls { display:none; }
+  .header { position:static; }
+  .section.collapsed .sec-items { display:block; }
+  .item { padding:5px 16px; }
+  body { padding-bottom:0; font-size:11px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="title">⛰ Overland Ready</div>
+      <div class="subtitle">GX550 Overtrail+ · Adventure Checklist</div>
+    </div>
+    <div>
+      <div class="overall-count" id="ov-count">0/0</div>
+      <div class="overall-label">packed</div>
+    </div>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="ov-bar" style="width:0%"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input class="search-input" id="search" type="text" placeholder="search items..." oninput="doSearch(this.value)">
+  </div>
+  <div class="filter-row">
+    <button class="fbtn active" onclick="setFilter('all',this)">All</button>
+    <button class="fbtn" onclick="setFilter('unchecked',this)">Remaining</button>
+    <button class="fbtn" onclick="setFilter('checked',this)">Packed ✓</button>
+    <button class="fbtn" onclick="setFilter('optional',this)">Optional</button>
+    <button class="fbtn" onclick="setFilter('seasonal',this)">Seasonal ❄</button>
+    <button class="fbtn" onclick="setFilter('solo',this)">Solo Trip</button>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<div id="custom-section" class="section">
+  <div class="sec-header" onclick="togSec('custom')">
+    <span class="sec-icon">✏️</span>
+    <span class="sec-title">Custom Items</span>
+    <span class="sec-stat" id="ss-custom">0/0</span>
+    <span class="sec-chevron">▼</span>
+  </div>
+  <div class="sec-bar"><div class="sec-bar-fill" id="sb-custom" style="width:0%"></div></div>
+  <div class="sec-items" id="custom-items"></div>
+  <div class="custom-add-row">
+    <input class="custom-input" id="custom-input" type="text" placeholder="Add a custom item..."
+      onkeydown="if(event.key==='Enter')addCustomItem()">
+    <button class="add-btn" onclick="addCustomItem()">+ Add</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal">
+    <div class="modal-title">Reset Checklist?</div>
+    <div class="modal-body">This will uncheck all items.<br>Your custom items will be kept.</div>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="confirmReset()">Reset All</button>
+    </div>
+  </div>
+</div>
+
+<div class="action-bar">
+  <button class="abtn danger" onclick="doReset()">↺ Reset</button>
+  <button class="abtn" onclick="collapseAll()">− All</button>
+  <button class="abtn" onclick="expandAll()">+ All</button>
+  <button class="abtn gold" onclick="window.print()">Print</button>
+</div>
+
+<script>
+const DATA = [
+  { id:'pre', icon:'🚦', title:'Pre-Departure', items:[
+    {id:'pd01', t:'Share trip plans with emergency contact (where / ETA / ETR)'},
+    {id:'pd02', t:'Itinerary, maps, directions, reservations downloaded/printed'},
+    {id:'pd03', t:'Route check — road closures / conditions', x:['seasonal']},
+    {id:'pd04', t:'ID / registration / insurance confirmed'},
+    {id:'pd05', t:'Lexus wallet key + mobile app access confirmed'},
+    {id:'pd06', t:'Full tank of gas'},
+    {id:'pd07', t:'Fluids: oil, transmission, coolant, steering, brake, windshield'},
+    {id:'pd08', t:'Tire check: pressure (onboard compressor) + lug nuts + spare check'},
+    {id:'pd09', t:'Lights: headlight, turn, brake, reverse, aux'},
+    {id:'pd10', t:'Wipers / Rain-X check'},
+    {id:'pd11', t:'Roof rack, cargo box, tie-downs secured'},
+    {id:'pd12', t:'AmFlow eMTB hitch rack mounted + charger packed', x:['optional']},
+    {id:'pd13', t:'ABC: EcoFlow Delta 3 fully charged + solar panels loaded'},
+    {id:'pd14', t:'EcoFlow Glacier fridge powered on + cooling'},
+    {id:'pd15', t:'Phone, headlamp, lanterns, camera, drone — all charged'},
+    {id:'pd16', t:'Water bottles filled, snack bag stocked'},
+    {id:'pd17', t:'Camera gear accessible and secured'},
+    {id:'pd18', t:'House locked, lights off, thermostat set to away'},
+  ]},
+  { id:'water', icon:'💧', title:'Water', items:[
+    {id:'w01', t:'Water jugs — filled (2 gal / person / day)'},
+    {id:'w02', t:'Canteens / water bottles'},
+    {id:'w03', t:'Water filter + purification tablets'},
+    {id:'w04', t:'USB water pump'},
+    {id:'w05', t:'Flavor packets / drops', x:['optional']},
+  ]},
+  { id:'fire', icon:'🔥', title:'Fire', items:[
+    {id:'f01', t:'Fire kit — lighters, matches, flint + starters'},
+    {id:'f02', t:'Firewood / kindling / newspaper'},
+    {id:'f03', t:'Ignik fire can + propane (CA fire ban alternative)'},
+    {id:'f04', t:'Candles', x:['optional']},
+  ]},
+  { id:'shelter', icon:'🏕', title:'Shelter & Bedding', items:[
+    {id:'s01', t:'Sleeping bag / quilt'},
+    {id:'s02', t:'Sleeping pad / mattress'},
+    {id:'s03', t:'Pillow'},
+    {id:'s04', t:'GX sleeping platform (solo trips)', x:['solo']},
+    {id:'s05', t:'Gazelle tent — poles, stakes, rain fly, ground cloth, entry mat', x:['optional']},
+    {id:'s06', t:'Emergency / space blankets'},
+    {id:'s07', t:'Electric blanket', x:['optional','seasonal']},
+  ]},
+  { id:'camp', icon:'⛺', title:'Camp Setup', items:[
+    {id:'c01', t:'Canopy fly (Kelty) — poles / rope / stakes'},
+    {id:'c02', t:'Tarp (solo) — poles / rope / stakes'},
+    {id:'c03', t:'Camp chairs'},
+    {id:'c04', t:'Folding table'},
+    {id:'c05', t:'Hammock', x:['optional']},
+    {id:'c06', t:'Rug / outdoor mat'},
+    {id:'c07', t:'Motion sensor lights / alarm'},
+    {id:'c08', t:'Bluetooth speaker'},
+    {id:'c09', t:'Heater + propane', x:['seasonal']},
+    {id:'c10', t:'Fan + batteries', x:['seasonal']},
+    {id:'c11', t:'Flag / flagpole', x:['optional']},
+  ]},
+  { id:'tools', icon:'🔧', title:'Essential Tools', items:[
+    {id:'t01', t:'Knife & hatchet'},
+    {id:'t02', t:'Multi-tool'},
+    {id:'t03', t:'Work gloves'},
+    {id:'t04', t:'Rope / paracord'},
+    {id:'t05', t:'Duct tape / electrical tape'},
+    {id:'t06', t:'Shovel'},
+    {id:'t07', t:'Saw'},
+    {id:'t08', t:'Tie-down straps / bungee cords'},
+    {id:'t09', t:'Scissors'},
+    {id:'t10', t:'Carabiners / zip ties'},
+    {id:'t11', t:'Whistle'},
+  ]},
+  { id:'light', icon:'💡', title:'Lighting', items:[
+    {id:'l01', t:'Headlamps + extra batteries'},
+    {id:'l02', t:'Flashlights + extra batteries'},
+    {id:'l03', t:'Lanterns / USB LED'},
+    {id:'l04', t:'String lights / USB LED', x:['optional']},
+    {id:'l05', t:'Glow sticks', x:['optional']},
+  ]},
+  { id:'power', icon:'⚡', title:'Power', items:[
+    {id:'p01', t:'EcoFlow Delta 3 (permanently installed in GX550)'},
+    {id:'p02', t:'EcoFlow alternator charger'},
+    {id:'p03', t:'Solar panels + extension cable'},
+    {id:'p04', t:'Batteries (AA / AAA)'},
+    {id:'p05', t:'USB power banks'},
+    {id:'p06', t:'Extension cord / power strip', x:['optional']},
+  ]},
+  { id:'comms', icon:'📡', title:'Communications', items:[
+    {id:'co01', t:'Mobile phone + charger'},
+    {id:'co02', t:'Garmin InReach satellite communicator'},
+    {id:'co03', t:'GMRS / HAM radio (covers AM / FM / NOAA)'},
+    {id:'co04', t:'Starlink Mini + power cable'},
+    {id:'co05', t:'Notepad / pen + emergency phone numbers written in back'},
+  ]},
+  { id:'nav', icon:'🗺', title:'Navigation', items:[
+    {id:'n01', t:'Permits, reservations, and itinerary'},
+    {id:'n02', t:'Paper maps — road, park, trail'},
+    {id:'n03', t:'Offline Google Maps downloaded'},
+    {id:'n04', t:'Compass'},
+  ]},
+  { id:'misc', icon:'🎒', title:'Miscellaneous', items:[
+    {id:'m01', t:'Backpack / trekking poles'},
+    {id:'m02', t:'Binoculars'},
+    {id:'m03', t:'Bug repellant / citronella candles'},
+    {id:'m04', t:'Bear spray'},
+    {id:'m05', t:'Dry bags (waterproofing for gear)'},
+    {id:'m06', t:'Tissues / hand wipes'},
+    {id:'m07', t:'Safety pins'},
+    {id:'m08', t:'Small sewing kit'},
+    {id:'m09', t:'Umbrella', x:['optional']},
+    {id:'m10', t:'N95 mask', x:['optional']},
+  ]},
+  { id:'ent', icon:'🎮', title:'Entertainment', items:[
+    {id:'e01', t:'Guidebooks / National Park Stamp Passport'},
+    {id:'e02', t:'Books / magazines (Kindle)'},
+    {id:'e03', t:'Cards / games'},
+    {id:'e04', t:'AmFlow eMTB + helmet + charger', x:['optional']},
+  ]},
+  { id:'personal', icon:'🪪', title:'Personal', items:[
+    {id:'pe01', t:'ID — drivers license, passport, visas'},
+    {id:'pe02', t:'Wallet — money, credit cards, quarters'},
+    {id:'pe03', t:'Medications / vitamins'},
+    {id:'pe04', t:'Eyeglasses / sunglasses'},
+    {id:'pe05', t:'Toothbrush + toothpaste'},
+    {id:'pe06', t:'Deodorant'},
+    {id:'pe07', t:'Soap (in case) / shampoo'},
+    {id:'pe08', t:'Towels / washcloth'},
+    {id:'pe09', t:'Laundry bag'},
+    {id:'pe10', t:'Shower shoes / flip flops'},
+    {id:'pe11', t:'Ear plugs'},
+    {id:'pe12', t:'Chapstick'},
+    {id:'pe13', t:'Sunscreen'},
+    {id:'pe14', t:'Wet wipes / baby wipes'},
+    {id:'pe15', t:'Portable shower bag', x:['optional']},
+  ]},
+  { id:'clothes', icon:'👕', title:'Clothing', subs:[
+    { label:'Base Layers', items:[
+      {id:'cl01', t:'Underwear'},
+      {id:'cl02', t:'Socks + extra socks'},
+      {id:'cl03', t:'Thermal underwear', x:['seasonal']},
+    ]},
+    { label:'Mid Layers', items:[
+      {id:'cl04', t:'T-shirts'},
+      {id:'cl05', t:'Shorts'},
+      {id:'cl06', t:'Jeans / pants + belt'},
+    ]},
+    { label:'Outer Layers', items:[
+      {id:'cl07', t:'Fleece / long sleeve / jacket'},
+      {id:'cl08', t:'Rain shell'},
+      {id:'cl09', t:'Rain pants'},
+    ]},
+    { label:'Accessories', items:[
+      {id:'cl10', t:'Hat (baseball / hiking)'},
+      {id:'cl11', t:'Warm hat / beanie', x:['seasonal']},
+      {id:'cl12', t:'Gloves / scarf', x:['seasonal']},
+      {id:'cl13', t:'Bandana'},
+    ]},
+    { label:'Sleep & Misc', items:[
+      {id:'cl14', t:'Sleep clothes'},
+      {id:'cl15', t:'Dirty clothes bag'},
+      {id:'cl16', t:'Swim suit + towel', x:['optional']},
+      {id:'cl17', t:'Shoes / boots'},
+    ]},
+  ]},
+  { id:'kitchen', icon:'🍳', title:'Kitchen', items:[
+    {id:'k01', t:'EcoFlow Glacier Classic fridge (powered by Delta 3)'},
+    {id:'k02', t:'JetBoil stove + fuel canisters (short trips)', x:['solo']},
+    {id:'k03', t:'JetBoil Genesis stove + fuel (longer trips)', x:['optional']},
+    {id:'k04', t:'Lighter / matches (stove)'},
+    {id:'k05', t:'Cook utensils — spatula, spoon, tongs, whisk'},
+    {id:'k06', t:'Pots and pans w/ lids + handles'},
+    {id:'k07', t:'Potholders / oven mitts'},
+    {id:'k08', t:'Pan splatter shield'},
+    {id:'k09', t:'Sharp knives (paring, chef)'},
+    {id:'k10', t:'Cutting board'},
+    {id:'k11', t:'Measuring cups / spoons'},
+    {id:'k12', t:'Mixing bowl'},
+    {id:'k13', t:'Can opener / bottle opener / corkscrew'},
+    {id:'k14', t:'Keurig mini coffee maker + K-pods', x:['solo']},
+    {id:'k15', t:'Coffee pot (group / non-solo)', x:['optional']},
+    {id:'k16', t:'Olive oil + cooking spray'},
+    {id:'k17', t:'Spices & seasonings + salt & pepper'},
+    {id:'k18', t:'Tablecloth + clips'},
+    {id:'k19', t:'Plates & bowls (+ paper backup)'},
+    {id:'k20', t:'Silverware (+ plastic backup)'},
+    {id:'k21', t:'Napkins'},
+    {id:'k22', t:'Mugs / cups'},
+    {id:'k23', t:'Food storage containers'},
+    {id:'k24', t:'Heavy-duty aluminum foil'},
+    {id:'k25', t:'Ziplock bags (various sizes)'},
+  ]},
+  { id:'sanit', icon:'🧹', title:'Sanitation', items:[
+    {id:'sa01', t:'Hand sanitizer'},
+    {id:'sa02', t:'Clorox wipes'},
+    {id:'sa03', t:'Paper towels'},
+    {id:'sa04', t:'Trash bags'},
+    {id:'sa05', t:'Collapsible sink + dish pan'},
+    {id:'sa06', t:'Scrub pad'},
+    {id:'sa07', t:'Dish soap'},
+    {id:'sa08', t:'Dish towels (quick-dry) + rags'},
+    {id:'sa09', t:'Collapsible drying rack'},
+    {id:'sa10', t:'Clothespins'},
+    {id:'sa11', t:'Broom / dustpan'},
+    {id:'sa12', t:'Portable toilet / privacy tent / wag bags'},
+    {id:'sa13', t:'Toilet paper'},
+  ]},
+  { id:'firstaid', icon:'🩺', title:'First Aid Kit', items:[
+    {id:'fa01', t:'Assorted adhesive bandages (various sizes)'},
+    {id:'fa02', t:'Gauze pads / rolls + surgical tape'},
+    {id:'fa03', t:'Ace wrap / elastic bandage'},
+    {id:'fa04', t:'Antiseptic wipes + antibacterial cream'},
+    {id:'fa05', t:'Moleskin (blisters)'},
+    {id:'fa06', t:'Tweezers + splinter tool'},
+    {id:'fa07', t:'SAM splint'},
+    {id:'fa08', t:'Tourniquet (CAT or similar)'},
+    {id:'fa09', t:'QuikClot blood stop gauze'},
+    {id:'fa10', t:'Trauma shears'},
+    {id:'fa11', t:'CPR face shield / mask'},
+    {id:'fa12', t:'Diphenhydramine (Benadryl) — allergy / anaphylaxis'},
+    {id:'fa13', t:'Ibuprofen / aspirin / acetaminophen'},
+    {id:'fa14', t:'Antacid / Pepto-Bismol'},
+    {id:'fa15', t:'Eye wash'},
+    {id:'fa16', t:'First aid manual'},
+  ]},
+  { id:'camera', icon:'📸', title:'Camera Gear', items:[
+    {id:'cam01', t:'Camera + batteries + charger'},
+    {id:'cam02', t:'Tripod'},
+    {id:'cam03', t:'Drone + batteries + charger'},
+    {id:'cam04', t:'Lenses'},
+    {id:'cam05', t:'Memory cards + card reader'},
+  ]},
+  { id:'veh-e', icon:'🚗', title:'Vehicle — Essentials', items:[
+    {id:'ve01', t:'Registration / insurance / service manual'},
+    {id:'ve02', t:'Full tank of gas + extra in approved containers'},
+    {id:'ve03', t:'Lexus wallet key (glove box) + mobile app key confirmed'},
+    {id:'ve04', t:'Jump start battery bank / jumper cables'},
+    {id:'ve05', t:'Fire extinguisher'},
+    {id:'ve06', t:'Basic tools — screwdrivers, pliers, hammer, wrench, socket set'},
+    {id:'ve07', t:'Duct tape / electrical tape'},
+    {id:'ve08', t:'Window screens'},
+    {id:'ve09', t:'Window shades / windshield sunshade'},
+    {id:'ve10', t:'Leveling blocks'},
+  ]},
+  { id:'veh-f', icon:'🛢', title:'Vehicle — Fluids', items:[
+    {id:'vf01', t:'Motor oil — 0W-20 ILSAC GF-6A / API SP (GX550 spec)'},
+    {id:'vf02', t:'Rain-X'},
+    {id:'vf03', t:'Windshield washer fluid'},
+    {id:'vf04', t:'WD-40'},
+    {id:'vf05', t:'Radiator stop leak'},
+    {id:'vf06', t:'Funnel'},
+  ]},
+  { id:'veh-t', icon:'🔄', title:'Vehicle — Tires', items:[
+    {id:'vt01', t:'Full-size spare tire'},
+    {id:'vt02', t:'Tire deflators (for airing down)'},
+    {id:'vt03', t:'Tire puncture repair kit'},
+    {id:'vt04', t:'Bottle jack + lug wrench'},
+  ]},
+  { id:'veh-r', icon:'🆘', title:'Vehicle — Recovery', items:[
+    {id:'vr01', t:'Traction boards (MAXTRAX or similar)'},
+    {id:'vr02', t:'Heavy-duty tow strap / kinetic recovery rope'},
+    {id:'vr03', t:'Gas can / Jerry can'},
+    {id:'vr04', t:'Signal flare'},
+    {id:'vr05', t:'Road flares + safety vest'},
+  ]},
+  { id:'veh-p', icon:'🔩', title:'Vehicle — Replacement Parts', items:[
+    {id:'vp01', t:'Hoses, clamps, nuts, bolts, washers'},
+    {id:'vp02', t:'Replacement fuses'},
+    {id:'vp03', t:'Replacement fan belts'},
+  ]},
+  { id:'veh-s', icon:'❄️', title:'Vehicle — Seasonal', items:[
+    {id:'vs01', t:'Tire chains', x:['seasonal']},
+    {id:'vs02', t:'Snow / ice scraper + snow shovel', x:['seasonal']},
+  ]},
+  { id:'food-r', icon:'🥜', title:'Food — Ready to Eat', items:[
+    {id:'fr01', t:'Energy bars'},
+    {id:'fr02', t:'Nuts'},
+    {id:'fr03', t:'Dried / fresh fruit'},
+  ]},
+  { id:'food-s', icon:'🍫', title:'Food — Snacks', items:[
+    {id:'fs01', t:'Chips'},
+    {id:'fs02', t:'Saltine crackers'},
+    {id:'fs03', t:"S'mores — Hershey bars, marshmallows, graham crackers"},
+    {id:'fs04', t:'Cookies / candy'},
+  ]},
+  { id:'food-d', icon:'📦', title:'Food — Dry Goods', items:[
+    {id:'fd01', t:'Pasta (spaghetti, farfalle, fusilli, rotini)'},
+    {id:'fd02', t:'Spaghetti sauce'},
+    {id:'fd03', t:'Cream of chicken soup'},
+    {id:'fd04', t:'Canned chicken + canned tuna'},
+    {id:'fd05', t:'Canned chili / hearty stew'},
+    {id:'fd06', t:'Canned soup + canned corn + canned tomato paste'},
+    {id:'fd07', t:'Peanut butter + jelly + honey'},
+    {id:'fd08', t:'Cold cereal / instant oatmeal'},
+    {id:'fd09', t:'Knorr pasta / rice sides'},
+    {id:'fd10', t:'Zero carb tortillas'},
+    {id:'fd11', t:'Salsa'},
+    {id:'fd12', t:'Condiments — steak sauce, sriracha, syrup, balsamic vinegar, mustard, mayo'},
+  ]},
+  { id:'food-dr', icon:'☕', title:'Food — Drinks', items:[
+    {id:'fdr01', t:'Soda'},
+    {id:'fdr02', t:'Coffee / tea bags + K-pods (Keurig mini)'},
+    {id:'fdr03', t:'Beer / wine', x:['optional']},
+    {id:'fdr04', t:'Almond milk'},
+    {id:'fdr05', t:'Hot chocolate', x:['seasonal']},
+  ]},
+  { id:'food-p', icon:'🥚', title:'Food — Perishables', items:[
+    {id:'fp01', t:'Eggs + egg tote'},
+    {id:'fp02', t:'Bread'},
+    {id:'fp03', t:'Lunch meat — turkey, salami'},
+    {id:'fp04', t:'Fresh vegetables / greens'},
+    {id:'fp05', t:'Cheese'},
+  ]},
+  { id:'lightsout', icon:'🌙', title:'Lights-Out Checklist', items:[
+    {id:'lo01', t:'Secure food and trash in bear-proof storage'},
+    {id:'lo02', t:'Fire completely out'},
+    {id:'lo03', t:'Secure and waterproof outside gear / cargo box'},
+    {id:'lo04', t:'Security: motion lights / alarm on', x:['optional']},
+    {id:'lo05', t:'Window screens on, windows cracked for ventilation'},
+    {id:'lo06', t:'Electric blanket plugged into Delta 3', x:['optional','seasonal']},
+    {id:'lo07', t:'Two clear exits confirmed'},
+    {id:'lo08', t:'Phone charging and accessible'},
+    {id:'lo09', t:'Garmin InReach accessible, charged, powered on'},
+    {id:'lo10', t:'Doors locked — keys accessible'},
+    {id:'lo11', t:'Clothes set out for morning (pants, shirt, shoes, jacket)'},
+    {id:'lo12', t:'Headlamp accessible and working'},
+    {id:'lo13', t:'Smoke / CO2 detector armed'},
+  ]},
+  { id:'camp-dep', icon:'🏃', title:'Camp Departure', items:[
+    {id:'cd01', t:'Fire completely out'},
+    {id:'cd02', t:'Trash pickup — leave no trace'},
+    {id:'cd03', t:'Restroom stop + empty water bottles'},
+    {id:'cd04', t:'Campsite walk-through — Leave No Trace'},
+    {id:'cd05', t:'Camp chairs, table, all items packed and stowed'},
+    {id:'cd06', t:'Flag / flagpole down and packed', x:['optional']},
+  ]},
+];
+
+const KEY='overland-v3';
+let chk={},col={},filter='all',srch='';
+let customItems=[]; // [{id,t}]
+
+function load(){
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY)||'{}');
+    chk=s.chk||{}; col=s.col||{}; customItems=s.custom||[];
+  }catch(e){}
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify({chk,col,custom:customItems}));}catch(e){}
+}
+
+function allItems(sec){return sec.subs?sec.subs.flatMap(s=>s.items):sec.items||[];}
+function totals(){
+  let t=0,d=0;
+  DATA.forEach(s=>{allItems(s).forEach(i=>{t++;if(chk[i.id])d++;});});
+  customItems.forEach(i=>{t++;if(chk[i.id])d++;});
+  return{t,d};
+}
+function secTotals(sec){const its=allItems(sec);return{t:its.length,d:its.filter(i=>chk[i.id]).length};}
+
+function render(){
+  document.getElementById('app').innerHTML=DATA.map(s=>renderSec(s)).join('');
+  updOverall();applyFilter();
+}
+
+function renderSec(sec){
+  const{t,d}=secTotals(sec);const pct=t>0?(d/t*100):0;const done=d===t&&t>0;
+  const body=sec.subs
+    ?sec.subs.map(sub=>`<div class="sub-label">${sub.label}</div>${sub.items.map(renderItem).join('')}`).join('')
+    :(sec.items||[]).map(renderItem).join('');
+  return`<div class="section${col[sec.id]?' collapsed':''}" id="sec-${sec.id}">
+    <div class="sec-header" onclick="togSec('${sec.id}')">
+      <span class="sec-icon">${sec.icon}</span>
+      <span class="sec-title">${sec.title}</span>
+      <span class="sec-stat${done?' done':''}" id="ss-${sec.id}">${d}/${t}</span>
+      <span class="sec-chevron">▼</span>
+    </div>
+    <div class="sec-bar"><div class="sec-bar-fill" id="sb-${sec.id}" style="width:${pct}%"></div></div>
+    <div class="sec-items">${body}</div>
+  </div>`;
+}
+
+function renderItem(item){
+  const tags=(item.x||[]).filter(t=>t!=='new');
+  const isChk=!!chk[item.id];
+  const tagHTML=tags.map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
+  return`<div class="item${isChk?' checked':''}" id="it-${item.id}" onclick="togItem('${item.id}')" data-tags="${tags.join(',')}" data-text="${item.t.toLowerCase()}">
+    <div class="cb"><span class="ck">✓</span></div>
+    <div class="item-body">
+      <div class="item-text">${item.t}</div>
+      ${tagHTML?`<div class="tags">${tagHTML}</div>`:''}
+    </div>
+  </div>`;
+}
+
+function togItem(id){
+  chk[id]=!chk[id];save();
+  const el=document.getElementById('it-'+id);
+  if(el)el.classList.toggle('checked',chk[id]);
+  updSec();renderCustom();updOverall();applyFilter();
+}
+
+function togSec(id){
+  col[id]=!col[id];save();
+  const el=document.getElementById('sec-'+id)||document.getElementById('custom-section');
+  if(id==='custom'){
+    const sec=document.getElementById('custom-section');
+    if(sec)sec.classList.toggle('collapsed',col[id]);
+  } else {
+    if(el)el.classList.toggle('collapsed',col[id]);
+  }
+}
+
+function updSec(){
+  DATA.forEach(sec=>{
+    const{t,d}=secTotals(sec);const pct=t>0?(d/t*100):0;const done=d===t&&t>0;
+    const ss=document.getElementById('ss-'+sec.id);const sb=document.getElementById('sb-'+sec.id);
+    if(ss){ss.textContent=`${d}/${t}`;ss.className='sec-stat'+(done?' done':'');}
+    if(sb)sb.style.width=pct+'%';
+  });
+}
+
+function updOverall(){
+  const{t,d}=totals();const pct=t>0?(d/t*100):0;
+  document.getElementById('ov-count').textContent=`${d}/${t}`;
+  document.getElementById('ov-bar').style.width=pct+'%';
+}
+
+function setFilter(f,btn){
+  filter=f;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');applyFilter();
+}
+
+function doSearch(val){srch=val.trim().toLowerCase();applyFilter();}
+
+function applyFilter(){
+  document.querySelectorAll('#app .item').forEach(el=>{
+    const tags=el.dataset.tags||'';const isChk=el.classList.contains('checked');
+    let show=true;
+    if(filter==='unchecked')show=!isChk;
+    else if(filter==='checked')show=isChk;
+    else if(filter==='optional')show=tags.includes('optional');
+    else if(filter==='seasonal')show=tags.includes('seasonal');
+    else if(filter==='solo')show=tags.includes('solo');
+    if(srch)show=show&&el.dataset.text.includes(srch);
+    el.classList.toggle('hidden',!show);
+  });
+  document.querySelectorAll('#app .section').forEach(sec=>{
+    sec.classList.toggle('hidden',sec.querySelectorAll('.item:not(.hidden)').length===0);
+  });
+  applyFilterCustom();
+}
+
+// ── CUSTOM ITEMS ─────────────────────────────────────────────
+function addCustomItem(){
+  const inp=document.getElementById('custom-input');
+  const text=(inp.value||'').trim();
+  if(!text)return;
+  const id='cx-'+Date.now();
+  customItems.push({id,t:text});
+  save();
+  inp.value='';
+  renderCustom();
+  updOverall();
+}
+
+function deleteCustomItem(id){
+  customItems=customItems.filter(i=>i.id!==id);
+  delete chk[id];
+  save();
+  renderCustom();
+  updOverall();
+}
+
+function renderCustom(){
+  const container=document.getElementById('custom-items');
+  if(!container)return;
+  const t=customItems.length;
+  const d=customItems.filter(i=>chk[i.id]).length;
+  const pct=t>0?(d/t*100):0;
+  const done=t>0&&d===t;
+  const ss=document.getElementById('ss-custom');
+  const sb=document.getElementById('sb-custom');
+  if(ss){ss.textContent=`${d}/${t}`;ss.className='sec-stat'+(done?' done':'');}
+  if(sb)sb.style.width=pct+'%';
+  container.innerHTML=customItems.map(item=>{
+    const isChk=!!chk[item.id];
+    return`<div class="item${isChk?' checked':''}" id="it-${item.id}" data-tags="" data-text="${item.t.toLowerCase()}">
+      <div class="cb" onclick="togItem('${item.id}')" style="cursor:pointer"><span class="ck">✓</span></div>
+      <div class="item-body" onclick="togItem('${item.id}')" style="cursor:pointer">
+        <div class="item-text">${item.t}</div>
+      </div>
+      <button class="del-btn" onclick="deleteCustomItem('${item.id}')" title="Remove">×</button>
+    </div>`;
+  }).join('');
+  // sync hidden state with current filter/search
+  applyFilterCustom();
+}
+
+function applyFilterCustom(){
+  const container=document.getElementById('custom-items');
+  if(!container)return;
+  container.querySelectorAll('.item').forEach(el=>{
+    const isChk=el.classList.contains('checked');
+    let show=true;
+    if(filter==='unchecked')show=!isChk;
+    else if(filter==='checked')show=isChk;
+    else if(filter==='optional'||filter==='seasonal'||filter==='solo')show=false;
+    if(srch)show=show&&el.dataset.text.includes(srch);
+    el.classList.toggle('hidden',!show);
+  });
+  const sec=document.getElementById('custom-section');
+  if(sec){
+    const vis=sec.querySelectorAll('.item:not(.hidden)').length;
+    const addRow=sec.querySelector('.custom-add-row');
+    // keep section visible if filter is 'all' or 'unchecked'/'checked'
+    const showSection=(filter==='all'||filter==='unchecked'||filter==='checked')&&(!srch||(customItems.some(i=>i.t.toLowerCase().includes(srch))));
+    sec.classList.toggle('hidden',!showSection&&vis===0);
+  }
+}
+
+function collapseAll(){DATA.forEach(s=>{col[s.id]=true;});col['custom']=true;save();document.querySelectorAll('.section').forEach(s=>s.classList.add('collapsed'));}
+function expandAll(){DATA.forEach(s=>{col[s.id]=false;});col['custom']=false;save();document.querySelectorAll('.section').forEach(s=>s.classList.remove('collapsed'));}
+function doReset(){ document.getElementById('reset-modal').classList.add('open'); }
+function closeModal(){ document.getElementById('reset-modal').classList.remove('open'); }
+function confirmReset(){ chk={}; save(); closeModal(); render(); renderCustom(); }
+
+load();render();renderCustom();
+</script>
+</body>
+</html>
