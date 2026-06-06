@@ -54,10 +54,17 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
 
 .sub-label { font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); padding:10px 16px 3px; font-weight:400; }
 
-.item { display:flex; align-items:flex-start; padding:10px 16px; gap:12px; border-bottom:1px solid rgba(46,46,36,0.5); cursor:pointer; transition:background 0.1s; -webkit-tap-highlight-color:transparent; }
-.item:last-child { border-bottom:none; }
+/* ── SWIPE ITEM WRAPPER ── */
+.item-wrap { position:relative; overflow:hidden; border-bottom:1px solid rgba(46,46,36,0.5); }
+.item-wrap:last-child { border-bottom:none; }
+.swipe-hint { position:absolute; top:0; right:0; bottom:0; width:80px; display:flex; align-items:center; justify-content:center; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; pointer-events:none; transition:opacity 0.15s; opacity:0; }
+.swipe-hint.left  { right:auto; left:0; background:var(--green); color:white; }
+.swipe-hint.right { background:#6B2222; color:#E8C0C0; }
+
+.item { display:flex; align-items:flex-start; padding:10px 16px; gap:12px; cursor:pointer; transition:transform 0.05s, background 0.1s; will-change:transform; touch-action:pan-y; -webkit-tap-highlight-color:transparent; background:var(--bg); }
 .item:active { background:var(--surface2); }
 .item.hidden { display:none; }
+.item.dismissed { display:none; }
 .item.checked { background:rgba(0,0,0,0.15); }
 .cb { width:19px; height:19px; border:1.5px solid var(--border); border-radius:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.2s; background:var(--surface); }
 .item.checked .cb { background:var(--green); border-color:var(--green); }
@@ -77,6 +84,7 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
 .abtn:active { opacity:0.7; }
 .abtn.danger { color:#884040; border-color:#2A1818; }
 .abtn.gold { background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:500; }
+.abtn.active-state { background:rgba(200,168,74,0.15); border-color:var(--gold-dim); color:var(--gold); }
 
 .custom-add-row { display:flex; gap:8px; padding:10px 12px; background:var(--bg); }
 .custom-input { flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 10px; border-radius:4px; outline:none; -webkit-appearance:none; }
@@ -97,6 +105,9 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
 .modal-btn.cancel { background:var(--surface2); color:var(--text-dim); }
 .modal-btn.confirm { background:#6B2222; border-color:#6B2222; color:#E8C0C0; font-weight:500; }
 .modal-btn:active { opacity:0.75; }
+
+/* dismissed items shown in "show hidden" mode */
+.item-wrap.show-dismissed .item.dismissed { display:flex; opacity:0.4; }
 
 @media print {
   .action-bar,.controls { display:none; }
@@ -140,7 +151,7 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
   </div>
 </div>
 
-<div id="app"></div>
+<div id="app-gear"></div>
 
 <div id="custom-section" class="section">
   <div class="sec-header" onclick="togSec('custom')">
@@ -158,10 +169,12 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
   </div>
 </div>
 
+<div id="app-proc"></div>
+
 <div class="modal-overlay" id="reset-modal">
   <div class="modal">
     <div class="modal-title">Reset Checklist?</div>
-    <div class="modal-body">This will uncheck all items.<br>Your custom items will be kept.</div>
+    <div class="modal-body">This will uncheck all items and restore any hidden items.<br>Your custom items will be kept.</div>
     <div class="modal-btns">
       <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
       <button class="modal-btn confirm" onclick="confirmReset()">Reset All</button>
@@ -173,65 +186,42 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
   <button class="abtn danger" onclick="doReset()">↺ Reset</button>
   <button class="abtn" onclick="collapseAll()">− All</button>
   <button class="abtn" onclick="expandAll()">+ All</button>
+  <button class="abtn" id="hidden-btn" onclick="toggleShowHidden()">👁 Hidden</button>
   <button class="abtn gold" onclick="window.print()">Print</button>
 </div>
 
 <script>
 const DATA = [
-  { id:'pre', icon:'🚦', title:'Pre-Departure', items:[
-    {id:'pd01', t:'Share trip plans with emergency contact (where / ETA / ETR)'},
-    {id:'pd02', t:'Itinerary, maps, directions, reservations downloaded/printed'},
-    {id:'pd03', t:'Route check — road closures / conditions', x:['seasonal']},
-    {id:'pd04', t:'ID / registration / insurance confirmed'},
-    {id:'pd05', t:'Lexus wallet key + mobile app access confirmed'},
-    {id:'pd06', t:'Full tank of gas'},
-    {id:'pd07', t:'Fluids: oil, transmission, coolant, steering, brake, windshield'},
-    {id:'pd08', t:'Tire check: pressure (onboard compressor) + lug nuts + spare check'},
-    {id:'pd09', t:'Lights: headlight, turn, brake, reverse, aux'},
-    {id:'pd10', t:'Wipers / Rain-X check'},
-    {id:'pd11', t:'Roof rack, cargo box, tie-downs secured'},
-    {id:'pd12', t:'AmFlow eMTB hitch rack mounted + charger packed', x:['optional']},
-    {id:'pd13', t:'ABC: EcoFlow Delta 3 fully charged + solar panels loaded'},
-    {id:'pd14', t:'EcoFlow Glacier fridge powered on + cooling'},
-    {id:'pd15', t:'Phone, headlamp, lanterns, camera, drone — all charged'},
-    {id:'pd16', t:'Water bottles filled, snack bag stocked'},
-    {id:'pd17', t:'Camera gear accessible and secured'},
-    {id:'pd18', t:'House locked, lights off, thermostat set to away'},
-  ]},
   { id:'water', icon:'💧', title:'Water', items:[
-    {id:'w01', t:'Water jugs — filled (2 gal / person / day)'},
-    {id:'w02', t:'Canteens / water bottles'},
-    {id:'w03', t:'Water filter + purification tablets'},
-    {id:'w04', t:'USB water pump'},
-    {id:'w05', t:'Flavor packets / drops', x:['optional']},
+    {id:'w01', t:'Water jugs / Rotopax + USB water pump'},
+    {id:'w02', t:'Water bottles / canteens'},
+    {id:'w03', t:'Water purification filter'},
+    {id:'w04', t:'Water flavor packets / drops', x:['optional']},
   ]},
   { id:'fire', icon:'🔥', title:'Fire', items:[
-    {id:'f01', t:'Fire kit — lighters, matches, flint + starters'},
-    {id:'f02', t:'Firewood / kindling / newspaper'},
-    {id:'f03', t:'Ignik fire can + propane (CA fire ban alternative)'},
-    {id:'f04', t:'Candles', x:['optional']},
+    {id:'f01', t:'Fire kit — torch, lighters, matches, flint + starters'},
+    {id:'f02', t:'Ignik FireCan + hose'},
+    {id:'f03', t:'Ignik propane 5lb tank + case'},
   ]},
   { id:'shelter', icon:'🏕', title:'Shelter & Bedding', items:[
-    {id:'s01', t:'Sleeping bag / quilt'},
-    {id:'s02', t:'Sleeping pad / mattress'},
-    {id:'s03', t:'Pillow'},
-    {id:'s04', t:'GX sleeping platform (solo trips)', x:['solo']},
-    {id:'s05', t:'Gazelle tent — poles, stakes, rain fly, ground cloth, entry mat', x:['optional']},
-    {id:'s06', t:'Emergency / space blankets'},
-    {id:'s07', t:'Electric blanket', x:['optional','seasonal']},
+    {id:'s01', t:'Sleeping platform', x:['solo']},
+    {id:'s02', t:'Gazelle T4 ground tent', x:['optional']},
+    {id:'s03', t:'Sleeping bag / quilt'},
+    {id:'s04', t:'Sleeping pad'},
+    {id:'s05', t:'Pillow'},
+    {id:'s06', t:'Blanket (or electric blanket)', x:['seasonal']},
   ]},
   { id:'camp', icon:'⛺', title:'Camp Setup', items:[
-    {id:'c01', t:'Canopy fly (Kelty) — poles / rope / stakes'},
-    {id:'c02', t:'Tarp (solo) — poles / rope / stakes'},
-    {id:'c03', t:'Camp chairs'},
-    {id:'c04', t:'Folding table'},
-    {id:'c05', t:'Hammock', x:['optional']},
-    {id:'c06', t:'Rug / outdoor mat'},
-    {id:'c07', t:'Motion sensor lights / alarm'},
+    {id:'c01', t:'OVS 180° Awning'},
+    {id:'c02', t:'Kelty Dome Canopy'},
+    {id:'c03', t:'12x12 Tarp — poles / rope / stakes'},
+    {id:'c04', t:'Camp chairs'},
+    {id:'c05', t:'Folding table'},
+    {id:'c06', t:'Hammock', x:['optional']},
+    {id:'c07', t:'Outdoor rug'},
     {id:'c08', t:'Bluetooth speaker'},
-    {id:'c09', t:'Heater + propane', x:['seasonal']},
-    {id:'c10', t:'Fan + batteries', x:['seasonal']},
-    {id:'c11', t:'Flag / flagpole', x:['optional']},
+    {id:'c09', t:'Heater + 1lb propane', x:['seasonal']},
+    {id:'c10', t:'Fan (USB)', x:['seasonal']},
   ]},
   { id:'tools', icon:'🔧', title:'Essential Tools', items:[
     {id:'t01', t:'Knife & hatchet'},
@@ -239,58 +229,50 @@ const DATA = [
     {id:'t03', t:'Work gloves'},
     {id:'t04', t:'Rope / paracord'},
     {id:'t05', t:'Duct tape / electrical tape'},
-    {id:'t06', t:'Shovel'},
-    {id:'t07', t:'Saw'},
+    {id:'t06', t:'Folding shovel'},
+    {id:'t07', t:'Folding saw'},
     {id:'t08', t:'Tie-down straps / bungee cords'},
     {id:'t09', t:'Scissors'},
-    {id:'t10', t:'Carabiners / zip ties'},
-    {id:'t11', t:'Whistle'},
+    {id:'t10', t:'Whistle'},
+    {id:'t11', t:'Carabiners / zip ties'},
+    {id:'t12', t:'Bug repellant / citronella candles / Thermacell'},
+    {id:'t13', t:'Bear spray'},
   ]},
   { id:'light', icon:'💡', title:'Lighting', items:[
-    {id:'l01', t:'Headlamps + extra batteries'},
-    {id:'l02', t:'Flashlights + extra batteries'},
-    {id:'l03', t:'Lanterns / USB LED'},
-    {id:'l04', t:'String lights / USB LED', x:['optional']},
-    {id:'l05', t:'Glow sticks', x:['optional']},
+    {id:'l01', t:'Headlamps'},
+    {id:'l02', t:'Flashlights'},
+    {id:'l03', t:'Lanterns'},
+    {id:'l04', t:'String lights', x:['optional']},
+    {id:'l05', t:'Motion sensor magnetic lights'},
   ]},
   { id:'power', icon:'⚡', title:'Power', items:[
     {id:'p01', t:'EcoFlow Delta 3 (permanently installed in GX550)'},
     {id:'p02', t:'EcoFlow alternator charger'},
     {id:'p03', t:'Solar panels + extension cable'},
-    {id:'p04', t:'Batteries (AA / AAA)'},
-    {id:'p05', t:'USB power banks'},
-    {id:'p06', t:'Extension cord / power strip', x:['optional']},
+    {id:'p04', t:'USB power banks'},
+    {id:'p05', t:'Extension cord'},
   ]},
-  { id:'comms', icon:'📡', title:'Communications', items:[
-    {id:'co01', t:'Mobile phone + charger'},
-    {id:'co02', t:'Garmin InReach satellite communicator'},
-    {id:'co03', t:'GMRS / HAM radio (covers AM / FM / NOAA)'},
-    {id:'co04', t:'Starlink Mini + power cable'},
-    {id:'co05', t:'Notepad / pen + emergency phone numbers written in back'},
-  ]},
-  { id:'nav', icon:'🗺', title:'Navigation', items:[
-    {id:'n01', t:'Permits, reservations, and itinerary'},
-    {id:'n02', t:'Paper maps — road, park, trail'},
-    {id:'n03', t:'Offline Google Maps downloaded'},
-    {id:'n04', t:'Compass'},
+  { id:'comms', icon:'📡', title:'Nav & Comms', items:[
+    {id:'co01', t:'Mobile phone'},
+    {id:'co02', t:'Navigation apps — onX Off-Road / Google Maps (offline)'},
+    {id:'co03', t:'GMRS / HAM radio (AM / FM / NOAA)'},
+    {id:'co04', t:'GPS — Garmin InReach'},
+    {id:'co05', t:'Starlink Mini (mounted on GX550)'},
+    {id:'co06', t:'Notepad / pen + emergency phone numbers in back'},
+    {id:'co07', t:'Itinerary / reservations / permits'},
+    {id:'co08', t:'Maps — road, park, trail'},
+    {id:'co09', t:'Compass'},
   ]},
   { id:'misc', icon:'🎒', title:'Miscellaneous', items:[
     {id:'m01', t:'Backpack / trekking poles'},
     {id:'m02', t:'Binoculars'},
-    {id:'m03', t:'Bug repellant / citronella candles'},
-    {id:'m04', t:'Bear spray'},
-    {id:'m05', t:'Dry bags (waterproofing for gear)'},
-    {id:'m06', t:'Tissues / hand wipes'},
-    {id:'m07', t:'Safety pins'},
-    {id:'m08', t:'Small sewing kit'},
-    {id:'m09', t:'Umbrella', x:['optional']},
-    {id:'m10', t:'N95 mask', x:['optional']},
+    {id:'m03', t:'Tissues / hand wipes'},
   ]},
   { id:'ent', icon:'🎮', title:'Entertainment', items:[
     {id:'e01', t:'Guidebooks / National Park Stamp Passport'},
     {id:'e02', t:'Books / magazines (Kindle)'},
     {id:'e03', t:'Cards / games'},
-    {id:'e04', t:'AmFlow eMTB + helmet + charger', x:['optional']},
+    {id:'e04', t:'Bikes / helmets / eBike chargers', x:['optional']},
   ]},
   { id:'personal', icon:'🪪', title:'Personal', items:[
     {id:'pe01', t:'ID — drivers license, passport, visas'},
@@ -302,12 +284,9 @@ const DATA = [
     {id:'pe07', t:'Soap (in case) / shampoo'},
     {id:'pe08', t:'Towels / washcloth'},
     {id:'pe09', t:'Laundry bag'},
-    {id:'pe10', t:'Shower shoes / flip flops'},
-    {id:'pe11', t:'Ear plugs'},
-    {id:'pe12', t:'Chapstick'},
-    {id:'pe13', t:'Sunscreen'},
-    {id:'pe14', t:'Wet wipes / baby wipes'},
-    {id:'pe15', t:'Portable shower bag', x:['optional']},
+    {id:'pe10', t:'Ear plugs / eye mask'},
+    {id:'pe11', t:'Chapstick'},
+    {id:'pe12', t:'Sunscreen'},
   ]},
   { id:'clothes', icon:'👕', title:'Clothing', subs:[
     { label:'Base Layers', items:[
@@ -320,227 +299,206 @@ const DATA = [
       {id:'cl05', t:'Shorts'},
       {id:'cl06', t:'Jeans / pants + belt'},
     ]},
-    { label:'Outer Layers', items:[
-      {id:'cl07', t:'Fleece / long sleeve / jacket'},
+    { label:'Thermal / Rain Layers', items:[
+      {id:'cl07', t:'Fleece / jacket'},
       {id:'cl08', t:'Rain shell'},
       {id:'cl09', t:'Rain pants'},
     ]},
-    { label:'Accessories', items:[
-      {id:'cl10', t:'Hat (baseball / hiking)'},
-      {id:'cl11', t:'Warm hat / beanie', x:['seasonal']},
-      {id:'cl12', t:'Gloves / scarf', x:['seasonal']},
+    { label:'Misc', items:[
+      {id:'cl10', t:'Hat'},
+      {id:'cl11', t:'Sleep clothes'},
+      {id:'cl12', t:'Swim suit / towel', x:['optional']},
       {id:'cl13', t:'Bandana'},
+      {id:'cl14', t:'Dirty clothes bag'},
+      {id:'cl15', t:'Warm hat / beanie', x:['seasonal']},
+      {id:'cl16', t:'Gloves / scarf', x:['seasonal']},
     ]},
-    { label:'Sleep & Misc', items:[
-      {id:'cl14', t:'Sleep clothes'},
-      {id:'cl15', t:'Dirty clothes bag'},
-      {id:'cl16', t:'Swim suit + towel', x:['optional']},
+    { label:'Footwear', items:[
       {id:'cl17', t:'Shoes / boots'},
+      {id:'cl18', t:'Flip flops / sandals (shower shoes)'},
     ]},
   ]},
   { id:'kitchen', icon:'🍳', title:'Kitchen', items:[
     {id:'k01', t:'EcoFlow Glacier Classic fridge (powered by Delta 3)'},
-    {id:'k02', t:'JetBoil stove + fuel canisters (short trips)', x:['solo']},
-    {id:'k03', t:'JetBoil Genesis stove + fuel (longer trips)', x:['optional']},
-    {id:'k04', t:'Lighter / matches (stove)'},
-    {id:'k05', t:'Cook utensils — spatula, spoon, tongs, whisk'},
-    {id:'k06', t:'Pots and pans w/ lids + handles'},
-    {id:'k07', t:'Potholders / oven mitts'},
-    {id:'k08', t:'Pan splatter shield'},
-    {id:'k09', t:'Sharp knives (paring, chef)'},
-    {id:'k10', t:'Cutting board'},
-    {id:'k11', t:'Measuring cups / spoons'},
-    {id:'k12', t:'Mixing bowl'},
-    {id:'k13', t:'Can opener / bottle opener / corkscrew'},
-    {id:'k14', t:'Keurig mini coffee maker + K-pods', x:['solo']},
-    {id:'k15', t:'Coffee pot (group / non-solo)', x:['optional']},
-    {id:'k16', t:'Olive oil + cooking spray'},
-    {id:'k17', t:'Spices & seasonings + salt & pepper'},
-    {id:'k18', t:'Tablecloth + clips'},
-    {id:'k19', t:'Plates & bowls (+ paper backup)'},
-    {id:'k20', t:'Silverware (+ plastic backup)'},
-    {id:'k21', t:'Napkins'},
-    {id:'k22', t:'Mugs / cups'},
-    {id:'k23', t:'Food storage containers'},
-    {id:'k24', t:'Heavy-duty aluminum foil'},
-    {id:'k25', t:'Ziplock bags (various sizes)'},
+    {id:'k02', t:'JetBoil MiniMo stove + fuel', x:['solo']},
+    {id:'k03', t:'JetBoil Genesis stove / pots / pans', x:['optional']},
+    {id:'k04', t:'Propane'},
+    {id:'k05', t:'Lighter / matches'},
+    {id:'k06', t:'Coffee maker (electric or GSI percolator)'},
+    {id:'k07', t:'Mugs / cups'},
+    {id:'k08', t:'Plates & bowls (+ paper backup)'},
+    {id:'k09', t:'Silverware (+ plastic backup)'},
+    {id:'k10', t:'Napkins / paper towels'},
+    {id:'k11', t:'Tablecloth + clips'},
+    {id:'k12', t:'Cook utensils — spatula, spoon, tongs, whisk'},
+    {id:'k13', t:'Sharp knives (paring, chef)'},
+    {id:'k14', t:'Potholders / oven mitts'},
+    {id:'k15', t:'Cutting board'},
+    {id:'k16', t:'Heavy-duty aluminum foil'},
+    {id:'k17', t:'Measuring cups / spoons / mixing bowl'},
+    {id:'k18', t:'Peeler'},
+    {id:'k19', t:'Skewers'},
+    {id:'k20', t:'Can opener / bottle opener / corkscrew'},
+    {id:'k21', t:'Ziplock bags'},
+    {id:'k22', t:'Olive oil'},
+    {id:'k23', t:'Salt & pepper, spices, seasonings'},
+    {id:'k24', t:'Condiments — ketchup, mustard, mayo'},
   ]},
   { id:'sanit', icon:'🧹', title:'Sanitation', items:[
     {id:'sa01', t:'Hand sanitizer'},
-    {id:'sa02', t:'Clorox wipes'},
-    {id:'sa03', t:'Paper towels'},
-    {id:'sa04', t:'Trash bags'},
-    {id:'sa05', t:'Collapsible sink + dish pan'},
-    {id:'sa06', t:'Scrub pad'},
-    {id:'sa07', t:'Dish soap'},
-    {id:'sa08', t:'Dish towels (quick-dry) + rags'},
-    {id:'sa09', t:'Collapsible drying rack'},
-    {id:'sa10', t:'Clothespins'},
-    {id:'sa11', t:'Broom / dustpan'},
-    {id:'sa12', t:'Portable toilet / privacy tent / wag bags'},
-    {id:'sa13', t:'Toilet paper'},
+    {id:'sa02', t:'Toilet paper'},
+    {id:'sa03', t:'Portable toilet / privacy tent / wag bags'},
+    {id:'sa04', t:'Trash dry bag + trash bags'},
+    {id:'sa05', t:'Clorox wipes'},
+    {id:'sa06', t:'Paper towels'},
+    {id:'sa07', t:'Collapsible sink + dish soap + scrub pad'},
+    {id:'sa08', t:'Dish towels / rags'},
   ]},
   { id:'firstaid', icon:'🩺', title:'First Aid Kit', items:[
-    {id:'fa01', t:'Assorted adhesive bandages (various sizes)'},
-    {id:'fa02', t:'Gauze pads / rolls + surgical tape'},
-    {id:'fa03', t:'Ace wrap / elastic bandage'},
-    {id:'fa04', t:'Antiseptic wipes + antibacterial cream'},
-    {id:'fa05', t:'Moleskin (blisters)'},
-    {id:'fa06', t:'Tweezers + splinter tool'},
-    {id:'fa07', t:'SAM splint'},
-    {id:'fa08', t:'Tourniquet (CAT or similar)'},
-    {id:'fa09', t:'QuikClot blood stop gauze'},
-    {id:'fa10', t:'Trauma shears'},
-    {id:'fa11', t:'CPR face shield / mask'},
-    {id:'fa12', t:'Diphenhydramine (Benadryl) — allergy / anaphylaxis'},
-    {id:'fa13', t:'Ibuprofen / aspirin / acetaminophen'},
-    {id:'fa14', t:'Antacid / Pepto-Bismol'},
-    {id:'fa15', t:'Eye wash'},
-    {id:'fa16', t:'First aid manual'},
+    {id:'fa01', t:'CAT tourniquet'},
+    {id:'fa02', t:'Band-Aids (assorted sizes)'},
+    {id:'fa03', t:'Moleskin for blisters'},
+    {id:'fa04', t:'Ace bandage'},
+    {id:'fa05', t:'Antiseptic wipes'},
+    {id:'fa06', t:'Trauma shears'},
+    {id:'fa07', t:'Sterile gauze pads (2" and 4", 4–6 each)'},
+    {id:'fa08', t:'Adhesive tape'},
+    {id:'fa09', t:'Roll bandages (2" and 3", 3 rolls each)'},
+    {id:'fa10', t:'N-95 masks (2x)'},
+    {id:'fa11', t:'Sterile gloves'},
   ]},
   { id:'camera', icon:'📸', title:'Camera Gear', items:[
-    {id:'cam01', t:'Camera + batteries + charger'},
-    {id:'cam02', t:'Tripod'},
-    {id:'cam03', t:'Drone + batteries + charger'},
-    {id:'cam04', t:'Lenses'},
-    {id:'cam05', t:'Memory cards + card reader'},
+    {id:'cam01', t:'Camera and lenses'},
+    {id:'cam02', t:'Action camera'},
+    {id:'cam03', t:'360° camera'},
+    {id:'cam04', t:'Drone'},
+    {id:'cam05', t:'Tripod'},
+    {id:'cam06', t:'Memory cards'},
+    {id:'cam07', t:'Batteries and chargers'},
   ]},
-  { id:'veh-e', icon:'🚗', title:'Vehicle — Essentials', items:[
-    {id:'ve01', t:'Registration / insurance / service manual'},
-    {id:'ve02', t:'Full tank of gas + extra in approved containers'},
-    {id:'ve03', t:'Lexus wallet key (glove box) + mobile app key confirmed'},
-    {id:'ve04', t:'Jump start battery bank / jumper cables'},
-    {id:'ve05', t:'Fire extinguisher'},
-    {id:'ve06', t:'Basic tools — screwdrivers, pliers, hammer, wrench, socket set'},
-    {id:'ve07', t:'Duct tape / electrical tape'},
-    {id:'ve08', t:'Window screens'},
-    {id:'ve09', t:'Window shades / windshield sunshade'},
-    {id:'ve10', t:'Leveling blocks'},
+  { id:'vehicle', icon:'🚗', title:'Vehicle', subs:[
+    { label:'Essential', items:[
+      {id:'ve01', t:'Registration / insurance / manual'},
+      {id:'ve03', t:'Spare key (on someone else or hidden outside vehicle)'},
+      {id:'ve04', t:'NOCO battery jump starter pack'},
+      {id:'ve05', t:'Fire extinguisher'},
+      {id:'ve06', t:'Basic tools — screwdrivers, pliers, hammer, wrench, socket set'},
+      {id:'ve07', t:'Motor oil (ILSAC GF-6A) + funnel'},
+      {id:'ve09', t:'Rotopax gas can'},
+      {id:'ve10', t:'Rain-X'},
+    ]},
+    { label:'Tires', items:[
+      {id:'vt01', t:'Full-size spare tire (w/ wheel lock nut)'},
+      {id:'vt02', t:'Bottle jack & lug wrench'},
+      {id:'vt03', t:'Tire puncture repair kit & sidewall patch kit'},
+      {id:'vt04', t:'Tire deflators'},
+      {id:'vt05', t:'Air compressor'},
+      {id:'vt06', t:'Pressure gauge'},
+    ]},
+    { label:'Recovery', items:[
+      {id:'vr01', t:'Traction boards (MAXTRAX or similar)'},
+      {id:'vr02', t:'Heavy duty tow strap & kinetic rope'},
+      {id:'vr03', t:'Soft shackle'},
+    ]},
+    { label:'Comfort', items:[
+      {id:'vc01', t:'Window screens'},
+      {id:'vc02', t:'Window shades'},
+      {id:'vc03', t:'Vehicle leveling blocks'},
+    ]},
   ]},
-  { id:'veh-f', icon:'🛢', title:'Vehicle — Fluids', items:[
-    {id:'vf01', t:'Motor oil — 0W-20 ILSAC GF-6A / API SP (GX550 spec)'},
-    {id:'vf02', t:'Rain-X'},
-    {id:'vf03', t:'Windshield washer fluid'},
-    {id:'vf04', t:'WD-40'},
-    {id:'vf05', t:'Radiator stop leak'},
-    {id:'vf06', t:'Funnel'},
+  { id:'food', icon:'🥜', title:'Food & Snacks', items:[
+    {id:'fs01', t:'Snacks — protein bars, nuts, chips, cookies, candy'},
+    {id:'fs02', t:'Breakfast — oatmeal, eggs, bacon'},
+    {id:'fs03', t:'Lunch — deli meats & cheese'},
+    {id:'fs04', t:'Dinner — see trip menu'},
+    {id:'fs05', t:'Campfire — hot cocoa & s\'mores'},
   ]},
-  { id:'veh-t', icon:'🔄', title:'Vehicle — Tires', items:[
-    {id:'vt01', t:'Full-size spare tire'},
-    {id:'vt02', t:'Tire deflators (for airing down)'},
-    {id:'vt03', t:'Tire puncture repair kit'},
-    {id:'vt04', t:'Bottle jack + lug wrench'},
+  { id:'drinks', icon:'☕', title:'Drinks', items:[
+    {id:'dr01', t:'Soda'},
+    {id:'dr02', t:'Beer / wine', x:['optional']},
+    {id:'dr03', t:'Coffee / tea bags'},
+    {id:'dr04', t:'Coffee creamer'},
+    {id:'dr05', t:'Hot cocoa', x:['seasonal']},
   ]},
-  { id:'veh-r', icon:'🆘', title:'Vehicle — Recovery', items:[
-    {id:'vr01', t:'Traction boards (MAXTRAX or similar)'},
-    {id:'vr02', t:'Heavy-duty tow strap / kinetic recovery rope'},
-    {id:'vr03', t:'Gas can / Jerry can'},
-    {id:'vr04', t:'Signal flare'},
-    {id:'vr05', t:'Road flares + safety vest'},
-  ]},
-  { id:'veh-p', icon:'🔩', title:'Vehicle — Replacement Parts', items:[
-    {id:'vp01', t:'Hoses, clamps, nuts, bolts, washers'},
-    {id:'vp02', t:'Replacement fuses'},
-    {id:'vp03', t:'Replacement fan belts'},
-  ]},
-  { id:'veh-s', icon:'❄️', title:'Vehicle — Seasonal', items:[
-    {id:'vs01', t:'Tire chains', x:['seasonal']},
-    {id:'vs02', t:'Snow / ice scraper + snow shovel', x:['seasonal']},
-  ]},
-  { id:'food-r', icon:'🥜', title:'Food — Ready to Eat', items:[
-    {id:'fr01', t:'Energy bars'},
-    {id:'fr02', t:'Nuts'},
-    {id:'fr03', t:'Dried / fresh fruit'},
-  ]},
-  { id:'food-s', icon:'🍫', title:'Food — Snacks', items:[
-    {id:'fs01', t:'Chips'},
-    {id:'fs02', t:'Saltine crackers'},
-    {id:'fs03', t:"S'mores — Hershey bars, marshmallows, graham crackers"},
-    {id:'fs04', t:'Cookies / candy'},
-  ]},
-  { id:'food-d', icon:'📦', title:'Food — Dry Goods', items:[
-    {id:'fd01', t:'Pasta (spaghetti, farfalle, fusilli, rotini)'},
-    {id:'fd02', t:'Spaghetti sauce'},
-    {id:'fd03', t:'Cream of chicken soup'},
-    {id:'fd04', t:'Canned chicken + canned tuna'},
-    {id:'fd05', t:'Canned chili / hearty stew'},
-    {id:'fd06', t:'Canned soup + canned corn + canned tomato paste'},
-    {id:'fd07', t:'Peanut butter + jelly + honey'},
-    {id:'fd08', t:'Cold cereal / instant oatmeal'},
-    {id:'fd09', t:'Knorr pasta / rice sides'},
-    {id:'fd10', t:'Zero carb tortillas'},
-    {id:'fd11', t:'Salsa'},
-    {id:'fd12', t:'Condiments — steak sauce, sriracha, syrup, balsamic vinegar, mustard, mayo'},
-  ]},
-  { id:'food-dr', icon:'☕', title:'Food — Drinks', items:[
-    {id:'fdr01', t:'Soda'},
-    {id:'fdr02', t:'Coffee / tea bags + K-pods (Keurig mini)'},
-    {id:'fdr03', t:'Beer / wine', x:['optional']},
-    {id:'fdr04', t:'Almond milk'},
-    {id:'fdr05', t:'Hot chocolate', x:['seasonal']},
-  ]},
-  { id:'food-p', icon:'🥚', title:'Food — Perishables', items:[
-    {id:'fp01', t:'Eggs + egg tote'},
-    {id:'fp02', t:'Bread'},
-    {id:'fp03', t:'Lunch meat — turkey, salami'},
-    {id:'fp04', t:'Fresh vegetables / greens'},
-    {id:'fp05', t:'Cheese'},
+
+  { id:'pre', icon:'🚦', title:'Pre-Departure', items:[
+    {id:'pd01', t:'Share trip plans with emergency contact (where / ETA / ETR)'},
+    {id:'pd02', t:'Itinerary, maps, directions, reservations downloaded/printed'},
+    {id:'pd03', t:'Route check — road closures / conditions', x:['seasonal']},
+    {id:'pd04', t:'ID / registration / insurance confirmed'},
+    {id:'pd05', t:'Lexus wallet key + mobile app access confirmed'},
+    {id:'pd06', t:'Full tank of gas'},
+    {id:'pd07', t:'Fluids: oil, transmission, coolant, steering, brake, windshield'},
+    {id:'pd08', t:'Tire check: pressure + lug nuts + spare check'},
+    {id:'pd09', t:'Lights: headlight, turn, brake, reverse, aux'},
+    {id:'pd10', t:'Wipers / Rain-X check'},
+    {id:'pd11', t:'Roof rack, cargo box, tie-downs secured'},
+    {id:'pd12', t:'Hitch spare tire closed & locked'},
+    {id:'pd13', t:'eMTB bike rack hitch check + charger packed', x:['optional']},
+    {id:'pd14', t:'ABC: EcoFlow Delta 3 fully charged + solar panels loaded'},
+    {id:'pd15', t:'EcoFlow Glacier fridge powered on + cooling'},
+    {id:'pd16', t:'Phone, headlamp, lanterns, camera, drone — all charged'},
+    {id:'pd17', t:'Water bottles filled, snack bag stocked'},
+    {id:'pd18', t:'Camera gear accessible and secured'},
+    {id:'pd19', t:'House locked, lights off, thermostat set to away'},
   ]},
   { id:'lightsout', icon:'🌙', title:'Lights-Out Checklist', items:[
     {id:'lo01', t:'Secure food and trash in bear-proof storage'},
     {id:'lo02', t:'Fire completely out'},
     {id:'lo03', t:'Secure and waterproof outside gear / cargo box'},
-    {id:'lo04', t:'Security: motion lights / alarm on', x:['optional']},
-    {id:'lo05', t:'Window screens on, windows cracked for ventilation'},
-    {id:'lo06', t:'Electric blanket plugged into Delta 3', x:['optional','seasonal']},
+    {id:'lo04', t:'Car window screens on, windows cracked for ventilation'},
+    {id:'lo05', t:'Exterior motion lights on'},
+    {id:'lo06', t:'Doors locked — keys accessible'},
     {id:'lo07', t:'Two clear exits confirmed'},
-    {id:'lo08', t:'Phone charging and accessible'},
-    {id:'lo09', t:'Garmin InReach accessible, charged, powered on'},
-    {id:'lo10', t:'Doors locked — keys accessible'},
-    {id:'lo11', t:'Clothes set out for morning (pants, shirt, shoes, jacket)'},
-    {id:'lo12', t:'Headlamp accessible and working'},
-    {id:'lo13', t:'Smoke / CO2 detector armed'},
+    {id:'lo08', t:'Headlamp accessible and working'},
+    {id:'lo09', t:'Phone charging and accessible'},
+    {id:'lo10', t:'Clothing set out for morning'},
+    {id:'lo11', t:'Devices charging (Garmin InReach, cameras, drone)'},
   ]},
   { id:'camp-dep', icon:'🏃', title:'Camp Departure', items:[
     {id:'cd01', t:'Fire completely out'},
-    {id:'cd02', t:'Trash pickup — leave no trace'},
-    {id:'cd03', t:'Restroom stop + empty water bottles'},
-    {id:'cd04', t:'Campsite walk-through — Leave No Trace'},
-    {id:'cd05', t:'Camp chairs, table, all items packed and stowed'},
-    {id:'cd06', t:'Flag / flagpole down and packed', x:['optional']},
+    {id:'cd02', t:'Campsite walk-through & trash pickup — Leave No Trace'},
+    {id:'cd03', t:'Restroom stop'},
   ]},
 ];
 
-const KEY='overland-v3';
-let chk={},col={},filter='all',srch='';
-let customItems=[]; // [{id,t}]
+const KEY='overland-v4';
+let chk={}, col={}, dismissed={}, filter='all', srch='', showHidden=false;
+let customItems=[];
 
 function load(){
   try{
     const s=JSON.parse(localStorage.getItem(KEY)||'{}');
-    chk=s.chk||{}; col=s.col||{}; customItems=s.custom||[];
+    chk=s.chk||{}; col=s.col||{}; dismissed=s.dismissed||{}; customItems=s.custom||[];
   }catch(e){}
 }
 function save(){
-  try{localStorage.setItem(KEY,JSON.stringify({chk,col,custom:customItems}));}catch(e){}
+  try{localStorage.setItem(KEY,JSON.stringify({chk,col,dismissed,custom:customItems}));}catch(e){}
 }
 
 function allItems(sec){return sec.subs?sec.subs.flatMap(s=>s.items):sec.items||[];}
 function totals(){
   let t=0,d=0;
-  DATA.forEach(s=>{allItems(s).forEach(i=>{t++;if(chk[i.id])d++;});});
+  DATA.forEach(s=>{allItems(s).forEach(i=>{if(!dismissed[i.id]){t++;if(chk[i.id])d++;}});});
   customItems.forEach(i=>{t++;if(chk[i.id])d++;});
   return{t,d};
 }
-function secTotals(sec){const its=allItems(sec);return{t:its.length,d:its.filter(i=>chk[i.id]).length};}
+function secTotals(sec){
+  const its=allItems(sec).filter(i=>!dismissed[i.id]);
+  return{t:its.length,d:its.filter(i=>chk[i.id]).length};
+}
 
+const PROC_IDS=['pre','lightsout','camp-dep'];
 function render(){
-  document.getElementById('app').innerHTML=DATA.map(s=>renderSec(s)).join('');
-  updOverall();applyFilter();
+  const gear=DATA.filter(s=>!PROC_IDS.includes(s.id));
+  const proc=DATA.filter(s=>PROC_IDS.includes(s.id));
+  document.getElementById('app-gear').innerHTML=gear.map(s=>renderSec(s)).join('');
+  document.getElementById('app-proc').innerHTML=proc.map(s=>renderSec(s)).join('');
+  updOverall(); applyFilter(); attachSwipe();
 }
 
 function renderSec(sec){
-  const{t,d}=secTotals(sec);const pct=t>0?(d/t*100):0;const done=d===t&&t>0;
+  const{t,d}=secTotals(sec); const pct=t>0?(d/t*100):0; const done=d===t&&t>0;
   const body=sec.subs
     ?sec.subs.map(sub=>`<div class="sub-label">${sub.label}</div>${sub.items.map(renderItem).join('')}`).join('')
     :(sec.items||[]).map(renderItem).join('');
@@ -557,60 +515,149 @@ function renderSec(sec){
 }
 
 function renderItem(item){
-  const tags=(item.x||[]).filter(t=>t!=='new');
+  const tags=(item.x||[]);
   const isChk=!!chk[item.id];
+  const isDismissed=!!dismissed[item.id];
   const tagHTML=tags.map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
-  return`<div class="item${isChk?' checked':''}" id="it-${item.id}" onclick="togItem('${item.id}')" data-tags="${tags.join(',')}" data-text="${item.t.toLowerCase()}">
-    <div class="cb"><span class="ck">✓</span></div>
-    <div class="item-body">
-      <div class="item-text">${item.t}</div>
-      ${tagHTML?`<div class="tags">${tagHTML}</div>`:''}
+  return`<div class="item-wrap${isDismissed?' dismissed-wrap':''}">
+    <div class="swipe-hint left">restore</div>
+    <div class="swipe-hint right">hide</div>
+    <div class="item${isChk?' checked':''}${isDismissed?' dismissed':''}" id="it-${item.id}" data-id="${item.id}" data-tags="${tags.join(',')}" data-text="${item.t.toLowerCase()}">
+      <div class="cb" onclick="togItem('${item.id}');event.stopPropagation()"><span class="ck">✓</span></div>
+      <div class="item-body" onclick="togItem('${item.id}')">
+        <div class="item-text">${item.t}</div>
+        ${tagHTML?`<div class="tags">${tagHTML}</div>`:''}
+      </div>
     </div>
   </div>`;
 }
 
+// ── SWIPE TO HIDE ────────────────────────────────────────────
+function attachSwipe(){
+  document.querySelectorAll('#app-gear .item, #app-proc .item').forEach(el=>{
+    let startX=0, startY=0, dx=0, dragging=false, moved=false;
+    const wrap=el.closest('.item-wrap');
+    const hintL=wrap.querySelector('.swipe-hint.left');
+    const hintR=wrap.querySelector('.swipe-hint.right');
+
+    function onStart(x,y){ startX=x; startY=y; dx=0; dragging=true; moved=false; }
+    function onMove(x,y){
+      if(!dragging)return;
+      const diffX=x-startX, diffY=y-startY;
+      if(!moved && Math.abs(diffY)>Math.abs(diffX)){dragging=false;return;}
+      moved=true; dx=diffX;
+      el.style.transform=`translateX(${dx}px)`;
+      const pct=Math.min(Math.abs(dx)/80,1);
+      if(dx>0){ hintL.style.opacity=pct; hintR.style.opacity=0; }
+      else     { hintR.style.opacity=pct; hintL.style.opacity=0; }
+    }
+    function onEnd(){
+      if(!dragging){return;}
+      dragging=false;
+      const id=el.dataset.id;
+      const isDismissed=!!dismissed[id];
+      if(Math.abs(dx)>60){
+        if(dx<0 && !isDismissed){
+          // swipe left → dismiss/hide
+          el.style.transition='transform 0.25s ease, opacity 0.25s ease';
+          el.style.transform='translateX(-110%)'; el.style.opacity='0';
+          setTimeout(()=>{
+            dismissed[id]=true; save();
+            el.style.transition=''; el.style.transform=''; el.style.opacity='';
+            el.classList.add('dismissed');
+            wrap.classList.add('dismissed-wrap');
+            updSec(); updOverall(); applyFilter();
+          },240);
+        } else if(dx>0 && isDismissed){
+          // swipe right → restore
+          dismissed[id]=false; delete dismissed[id]; save();
+          el.classList.remove('dismissed');
+          wrap.classList.remove('dismissed-wrap');
+          updSec(); updOverall(); applyFilter();
+          el.style.transition='transform 0.2s ease';
+          el.style.transform=''; setTimeout(()=>el.style.transition='',200);
+        } else {
+          snap(el);
+        }
+      } else { snap(el); }
+      hintL.style.opacity=0; hintR.style.opacity=0;
+    }
+    function snap(el){
+      el.style.transition='transform 0.2s ease';
+      el.style.transform='';
+      setTimeout(()=>el.style.transition='',200);
+    }
+
+    el.addEventListener('touchstart',e=>{
+      const t=e.touches[0]; onStart(t.clientX,t.clientY);
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      const t=e.touches[0]; onMove(t.clientX,t.clientY);
+      if(moved)e.preventDefault();
+    },{passive:false});
+    el.addEventListener('touchend',onEnd,{passive:true});
+    // mouse support for desktop testing
+    el.addEventListener('mousedown',e=>{onStart(e.clientX,e.clientY);});
+    window.addEventListener('mousemove',e=>{if(dragging)onMove(e.clientX,e.clientY);});
+    window.addEventListener('mouseup',()=>{if(dragging)onEnd();});
+  });
+}
+
+function toggleShowHidden(){
+  showHidden=!showHidden;
+  const btn=document.getElementById('hidden-btn');
+  btn.classList.toggle('active-state',showHidden);
+  document.querySelectorAll('#app-gear .item-wrap, #app-proc .item-wrap, #custom-section .item-wrap').forEach(w=>{
+    w.classList.toggle('show-dismissed',showHidden);
+  });
+}
+
 function togItem(id){
-  chk[id]=!chk[id];save();
+  chk[id]=!chk[id]; save();
   const el=document.getElementById('it-'+id);
   if(el)el.classList.toggle('checked',chk[id]);
-  updSec();renderCustom();updOverall();applyFilter();
+  updSec(); renderCustom(); updOverall(); applyFilter();
 }
 
 function togSec(id){
-  col[id]=!col[id];save();
-  const el=document.getElementById('sec-'+id)||document.getElementById('custom-section');
+  col[id]=!col[id]; save();
   if(id==='custom'){
     const sec=document.getElementById('custom-section');
     if(sec)sec.classList.toggle('collapsed',col[id]);
   } else {
+    const el=document.getElementById('sec-'+id);
     if(el)el.classList.toggle('collapsed',col[id]);
   }
 }
 
 function updSec(){
   DATA.forEach(sec=>{
-    const{t,d}=secTotals(sec);const pct=t>0?(d/t*100):0;const done=d===t&&t>0;
-    const ss=document.getElementById('ss-'+sec.id);const sb=document.getElementById('sb-'+sec.id);
+    const{t,d}=secTotals(sec); const pct=t>0?(d/t*100):0; const done=d===t&&t>0;
+    const ss=document.getElementById('ss-'+sec.id); const sb=document.getElementById('sb-'+sec.id);
     if(ss){ss.textContent=`${d}/${t}`;ss.className='sec-stat'+(done?' done':'');}
     if(sb)sb.style.width=pct+'%';
   });
 }
 
 function updOverall(){
-  const{t,d}=totals();const pct=t>0?(d/t*100):0;
+  const{t,d}=totals(); const pct=t>0?(d/t*100):0;
   document.getElementById('ov-count').textContent=`${d}/${t}`;
   document.getElementById('ov-bar').style.width=pct+'%';
 }
 
 function setFilter(f,btn){
-  filter=f;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');applyFilter();
+  filter=f; document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); applyFilter();
 }
 
-function doSearch(val){srch=val.trim().toLowerCase();applyFilter();}
+function doSearch(val){ srch=val.trim().toLowerCase(); applyFilter(); }
 
 function applyFilter(){
-  document.querySelectorAll('#app .item').forEach(el=>{
-    const tags=el.dataset.tags||'';const isChk=el.classList.contains('checked');
+  document.querySelectorAll('#app-gear .item-wrap, #app-proc .item-wrap').forEach(wrap=>{
+    const el=wrap.querySelector('.item');
+    if(!el)return;
+    const tags=el.dataset.tags||''; const isChk=el.classList.contains('checked');
+    const isDismissed=el.classList.contains('dismissed');
+    if(isDismissed&&!showHidden){wrap.style.display='none';return;}
     let show=true;
     if(filter==='unchecked')show=!isChk;
     else if(filter==='checked')show=isChk;
@@ -618,10 +665,11 @@ function applyFilter(){
     else if(filter==='seasonal')show=tags.includes('seasonal');
     else if(filter==='solo')show=tags.includes('solo');
     if(srch)show=show&&el.dataset.text.includes(srch);
-    el.classList.toggle('hidden',!show);
+    wrap.style.display=show?'':'none';
   });
-  document.querySelectorAll('#app .section').forEach(sec=>{
-    sec.classList.toggle('hidden',sec.querySelectorAll('.item:not(.hidden)').length===0);
+  document.querySelectorAll('#app-gear .section, #app-proc .section').forEach(sec=>{
+    const vis=Array.from(sec.querySelectorAll('.item-wrap')).filter(w=>w.style.display!=='none').length;
+    sec.classList.toggle('hidden',vis===0);
   });
   applyFilterCustom();
 }
@@ -633,42 +681,34 @@ function addCustomItem(){
   if(!text)return;
   const id='cx-'+Date.now();
   customItems.push({id,t:text});
-  save();
-  inp.value='';
-  renderCustom();
-  updOverall();
+  save(); inp.value=''; renderCustom(); updOverall();
 }
 
 function deleteCustomItem(id){
   customItems=customItems.filter(i=>i.id!==id);
-  delete chk[id];
-  save();
-  renderCustom();
-  updOverall();
+  delete chk[id]; save(); renderCustom(); updOverall();
 }
 
 function renderCustom(){
   const container=document.getElementById('custom-items');
   if(!container)return;
-  const t=customItems.length;
-  const d=customItems.filter(i=>chk[i.id]).length;
-  const pct=t>0?(d/t*100):0;
-  const done=t>0&&d===t;
-  const ss=document.getElementById('ss-custom');
-  const sb=document.getElementById('sb-custom');
+  const t=customItems.length; const d=customItems.filter(i=>chk[i.id]).length;
+  const pct=t>0?(d/t*100):0; const done=t>0&&d===t;
+  const ss=document.getElementById('ss-custom'); const sb=document.getElementById('sb-custom');
   if(ss){ss.textContent=`${d}/${t}`;ss.className='sec-stat'+(done?' done':'');}
   if(sb)sb.style.width=pct+'%';
   container.innerHTML=customItems.map(item=>{
     const isChk=!!chk[item.id];
-    return`<div class="item${isChk?' checked':''}" id="it-${item.id}" data-tags="" data-text="${item.t.toLowerCase()}">
-      <div class="cb" onclick="togItem('${item.id}')" style="cursor:pointer"><span class="ck">✓</span></div>
-      <div class="item-body" onclick="togItem('${item.id}')" style="cursor:pointer">
-        <div class="item-text">${item.t}</div>
+    return`<div class="item-wrap">
+      <div class="item${isChk?' checked':''}" id="it-${item.id}" data-tags="" data-text="${item.t.toLowerCase()}">
+        <div class="cb" onclick="togItem('${item.id}');event.stopPropagation()"><span class="ck">✓</span></div>
+        <div class="item-body" onclick="togItem('${item.id}')">
+          <div class="item-text">${item.t}</div>
+        </div>
+        <button class="del-btn" onclick="deleteCustomItem('${item.id}')">×</button>
       </div>
-      <button class="del-btn" onclick="deleteCustomItem('${item.id}')" title="Remove">×</button>
     </div>`;
   }).join('');
-  // sync hidden state with current filter/search
   applyFilterCustom();
 }
 
@@ -682,33 +722,28 @@ function applyFilterCustom(){
     else if(filter==='checked')show=isChk;
     else if(filter==='optional'||filter==='seasonal'||filter==='solo')show=false;
     if(srch)show=show&&el.dataset.text.includes(srch);
-    el.classList.toggle('hidden',!show);
+    el.closest('.item-wrap').style.display=show?'':'none';
   });
   const sec=document.getElementById('custom-section');
   if(sec){
-    const vis=sec.querySelectorAll('.item:not(.hidden)').length;
-    const addRow=sec.querySelector('.custom-add-row');
-    // keep section visible if filter is 'all' or 'unchecked'/'checked'
     const showSection=(filter==='all'||filter==='unchecked'||filter==='checked')&&(!srch||(customItems.some(i=>i.t.toLowerCase().includes(srch))));
-    sec.classList.toggle('hidden',!showSection&&vis===0);
+    sec.classList.toggle('hidden',!showSection);
   }
 }
 
-function collapseAll(){DATA.forEach(s=>{col[s.id]=true;});col['custom']=true;save();document.querySelectorAll('.section').forEach(s=>s.classList.add('collapsed'));}
-function expandAll(){DATA.forEach(s=>{col[s.id]=false;});col['custom']=false;save();document.querySelectorAll('.section').forEach(s=>s.classList.remove('collapsed'));}
+function collapseAll(){ DATA.forEach(s=>{col[s.id]=true;}); col['custom']=true; save(); document.querySelectorAll('.section').forEach(s=>s.classList.add('collapsed')); }
+function expandAll(){ DATA.forEach(s=>{col[s.id]=false;}); col['custom']=false; save(); document.querySelectorAll('.section').forEach(s=>s.classList.remove('collapsed')); }
 function doReset(){ document.getElementById('reset-modal').classList.add('open'); }
 function closeModal(){ document.getElementById('reset-modal').classList.remove('open'); }
-function confirmReset(){ chk={}; save(); closeModal(); render(); renderCustom(); }
+function confirmReset(){ chk={}; dismissed={}; save(); closeModal(); render(); renderCustom(); }
 
-load();render();
+load(); render(); renderCustom();
 
-// Service worker — enables offline use after first load
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .catch(err => console.log('SW registration failed:', err));
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(err=>console.log('SW registration failed:',err));
   });
-}renderCustom();
+}
 </script>
 </body>
 </html>
