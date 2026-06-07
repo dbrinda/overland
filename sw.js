@@ -1,8 +1,6 @@
-const CACHE = 'overland-v1';
-
+const CACHE = 'overland-v4';
 // Install — activate immediately
 self.addEventListener('install', () => self.skipWaiting());
-
 // Activate — clear any old caches
 self.addEventListener('activate', e => {
   e.waitUntil(
@@ -12,7 +10,6 @@ self.addEventListener('activate', e => {
   );
   self.clients.claim();
 });
-
 // Fetch — cache-first, update in background, fall back to cache when offline
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
