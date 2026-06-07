@@ -150,9 +150,6 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
     <button class="fbtn active" onclick="setFilter('all',this)">All</button>
     <button class="fbtn" onclick="setFilter('unchecked',this)">Remaining</button>
     <button class="fbtn" onclick="setFilter('checked',this)">Packed ✓</button>
-    <button class="fbtn" onclick="setFilter('optional',this)">Optional</button>
-    <button class="fbtn" onclick="setFilter('seasonal',this)">Seasonal ❄</button>
-    <button class="fbtn" onclick="setFilter('solo',this)">Solo Trip</button>
   </div>
 </div>
 
@@ -443,9 +440,9 @@ const DATA = [
     {id:'pd11', t:'Roof rack, cargo box, tie-downs secured'},
     {id:'pd12', t:'Hitch spare tire closed & locked'},
     {id:'pd13', t:'eMTB bike rack hitch check + charger packed', x:['optional']},
-    {id:'pd14', t:'ABC: EcoFlow Delta 3 fully charged + solar panels loaded'},
-    {id:'pd15', t:'EcoFlow Glacier fridge powered on + cooling'},
-    {id:'pd16', t:'Phone, headlamp, lanterns, camera, drone — all charged'},
+    {id:'pd14', t:'EcoFlow alternator charger on, Delta 3 charging'},
+    {id:'pd15', t:'EcoFlow Glacier fridge plugged in and cooling'},
+    {id:'pd16', t:'Camera gear / drone secure but accessible, batteries charging'},
     {id:'pd17', t:'Water bottles filled, snack bag stocked'},
     {id:'pd18', t:'Camera gear accessible and secured'},
     {id:'pd19', t:'House locked, lights off, thermostat set to away'},
