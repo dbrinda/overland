@@ -84,6 +84,11 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
 .abtn:active { opacity:0.7; }
 .abtn.danger { color:#884040; border-color:#2A1818; }
 .abtn.gold { background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:500; }
+#app-proc .sec-header { background:rgba(200,168,74,0.08); border-left:3px solid var(--gold-dim); }
+#app-proc .sec-title { color:var(--gold); }
+#app-proc .sec-icon { opacity:0.8; }
+#app-proc .sec-bar-fill { background:var(--gold-dim); }
+#app-proc .sec-stat.done { color:var(--gold); }
 .abtn.active-state { background:rgba(200,168,74,0.15); border-color:var(--gold-dim); color:var(--gold); }
 
 .custom-add-row { display:flex; gap:8px; padding:10px 12px; background:var(--bg); }
@@ -187,7 +192,7 @@ body { background:var(--bg); color:var(--text); font-family:'IBM Plex Mono',mono
   <button class="abtn" onclick="collapseAll()">− All</button>
   <button class="abtn" onclick="expandAll()">+ All</button>
   <button class="abtn" id="hidden-btn" onclick="toggleShowHidden()">👁 Hidden</button>
-  <button class="abtn gold" onclick="window.print()">Print</button>
+  <button class="abtn" onclick="window.print()">Print</button>
 </div>
 
 <script>
@@ -482,7 +487,7 @@ function save(){
 function allItems(sec){return sec.subs?sec.subs.flatMap(s=>s.items):sec.items||[];}
 function totals(){
   let t=0,d=0;
-  DATA.forEach(s=>{allItems(s).forEach(i=>{if(!dismissed[i.id]){t++;if(chk[i.id])d++;}});});
+  DATA.filter(s=>!PROC_IDS.includes(s.id)).forEach(s=>{allItems(s).forEach(i=>{if(!dismissed[i.id]){t++;if(chk[i.id])d++;}});});
   customItems.forEach(i=>{t++;if(chk[i.id])d++;});
   return{t,d};
 }
